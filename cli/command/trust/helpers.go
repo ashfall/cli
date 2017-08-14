@@ -2,7 +2,10 @@ package trust
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"path"
+	"strings"
 
 	"github.com/docker/cli/cli/command"
 	"github.com/docker/distribution/reference"
@@ -30,7 +33,7 @@ func getImageReferencesAndAuth(cli command.Cli, imgName string) (reference.Named
 	return ref, repoInfo, &authConfig, err
 }
 
-// GetSignableRoles returns a list of roles for which we have valid signing
+// getSignableRoles returns a list of roles for which we have valid signing
 // keys, given a notary repository and a target
 func getSignableRoles(repo *client.NotaryRepository, target *client.Target) ([]data.RoleName, error) {
 	var signableRoles []data.RoleName
@@ -74,5 +77,15 @@ func getSignableRoles(repo *client.NotaryRepository, target *client.Target) ([]d
 	}
 
 	return signableRoles, nil
+}
 
+func askConfirm(input io.Reader) bool {
+	var res string
+	if _, err := fmt.Fscanln(input, &res); err != nil {
+		return false
+	}
+	if strings.EqualFold(res, "y") || strings.EqualFold(res, "yes") {
+		return true
+	}
+	return false
 }
