@@ -50,7 +50,6 @@ func revokeTrust(cli command.Cli, remote string) error {
 	case reference.Digested, reference.Canonical:
 		return fmt.Errorf("cannot remove signature for digest")
 	case reference.NamedTagged:
-
 		if err := revokeSingleSig(cli, ref.(reference.NamedTagged), repoInfo, *authConfig); err != nil {
 			return fmt.Errorf("could not remove signature for %s: %s", remote, err)
 		}
@@ -80,7 +79,6 @@ func revokeTrust(cli command.Cli, remote string) error {
 
 func revokeSingleSig(cli command.Cli, ref reference.NamedTagged, repoInfo *registry.RepositoryInfo, authConfig types.AuthConfig) error {
 	tag := ref.Tag()
-	// TODO(riyazdf): can we allow for a memory changelist?
 	notaryRepo, err := trust.GetNotaryRepository(cli, repoInfo, authConfig, "push", "pull")
 	if err != nil {
 		return trust.NotaryError(ref.Name(), err)
@@ -114,11 +112,11 @@ func revokeSingleSig(cli command.Cli, ref reference.NamedTagged, repoInfo *regis
 }
 
 func revokeAllSigs(cli command.Cli, ref reference.Named, repoInfo *registry.RepositoryInfo, authConfig types.AuthConfig) error {
-	notaryRepo, err := trust.GetNotaryRepository(cli, repoInfo, authConfig, "*")
+	notaryRepo, err := trust.GetNotaryRepository(cli, repoInfo, authConfig, "push", "pull")
 	if err != nil {
 		return trust.NotaryError(ref.Name(), err)
 	}
-	targetList, err := notaryRepo.ListTargets()
+	targetList, err := notaryRepo.ListTargets(trust.ReleasesRole, data.CanonicalTargetsRole)
 	if err != nil {
 		return trust.NotaryError(ref.Name(), err)
 	}
