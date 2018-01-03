@@ -39,26 +39,26 @@ func deleteTrustRepo(cli command.Cli, remote string) error {
 	// get ref
 	ref, err := reference.ParseNormalizedNamed(remote)
 	if err != nil {
-		return err
+		return trust.NotaryError(ref.Name(), err)
 	}
 
 	// Resolve the Repository name from fqn to RepositoryInfo
 	repoInfo, err := registry.ParseRepositoryInfo(ref)
 	if err != nil {
-		return err
+		return trust.NotaryError(ref.Name(), err)
 	}
 
 	ctx := context.Background()
 	authConfig := command.ResolveAuthConfig(ctx, cli, repoInfo.Index)
 	server, err := trust.Server(repoInfo.Index)
 	if err != nil {
-		return err
+		return trust.NotaryError(ref.Name(), err)
 	}
 	tr, err := trust.GetTransport(command.UserAgent(), repoInfo, server, &authConfig, "*")
 
 	notaryRepo, err := trust.GetNotaryRepositoryWithTransport(in, out, repoInfo, server, tr)
 	if err != nil {
-		return err
+		return trust.NotaryError(ref.Name(), err)
 	}
 
 	// Delete trust data for this repo
@@ -71,8 +71,7 @@ func deleteTrustRepo(cli command.Cli, remote string) error {
 		return trust.NotaryError(ref.Name(), err)
 	}
 
-	// No need to publish.
-	fmt.Println("Successfully deleted all trust data for %s", remote)
+	fmt.Fprintf(cli.Out(), "Successfully deleted all trust data for %s\n", remote)
 	return nil
 
 }
