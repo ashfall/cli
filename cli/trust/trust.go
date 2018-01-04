@@ -175,85 +175,12 @@ func GetNotaryRepository(in io.Reader, out io.Writer, userAgent string, repoInfo
 		return nil, err
 	}
 
-	var cfg = tlsconfig.ClientDefault()
-	cfg.InsecureSkipVerify = !repoInfo.Index.Secure
-
-	// Get certificate base directory
-	certDir, err := certificateDirectory(server)
-	if err != nil {
-		return nil, err
-	}
-	logrus.Debugf("reading certificate directory: %s", certDir)
-
-	if err := registry.ReadCertsDirectory(cfg, certDir); err != nil {
-		return nil, err
-	}
-
-	base := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		Dial: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-			DualStack: true,
-		}).Dial,
-		TLSHandshakeTimeout: 10 * time.Second,
-		TLSClientConfig:     cfg,
-		DisableKeepAlives:   true,
-	}
-
-	// Skip configuration headers since request is not going to Docker daemon
-	modifiers := registry.Headers(userAgent, http.Header{})
-	authTransport := transport.NewTransport(base, modifiers...)
-	pingClient := &http.Client{
-		Transport: authTransport,
-		Timeout:   5 * time.Second,
-	}
-	endpointStr := server + "/v2/"
-	req, err := http.NewRequest("GET", endpointStr, nil)
+	tr, err := GetTransport(userAgent, repoInfo, server, authConfig, actions...)
 	if err != nil {
 		return nil, err
 	}
 
-	challengeManager := challenge.NewSimpleManager()
-
-	resp, err := pingClient.Do(req)
-	if err != nil {
-		// Ignore error on ping to operate in offline mode
-		logrus.Debugf("Error pinging notary server %q: %s", endpointStr, err)
-	} else {
-		defer resp.Body.Close()
-
-		// Add response to the challenge manager to parse out
-		// authentication header and register authentication method
-		if err := challengeManager.AddResponse(resp); err != nil {
-			return nil, err
-		}
-	}
-
-	scope := auth.RepositoryScope{
-		Repository: repoInfo.Name.Name(),
-		Actions:    actions,
-		Class:      repoInfo.Class,
-	}
-	creds := simpleCredentialStore{auth: *authConfig}
-	tokenHandlerOptions := auth.TokenHandlerOptions{
-		Transport:   authTransport,
-		Credentials: creds,
-		Scopes:      []auth.Scope{scope},
-		ClientID:    registry.AuthClientID,
-	}
-	tokenHandler := auth.NewTokenHandlerWithOptions(tokenHandlerOptions)
-	basicHandler := auth.NewBasicHandler(creds)
-	modifiers = append(modifiers, auth.NewAuthorizer(challengeManager, tokenHandler, basicHandler))
-	tr := transport.NewTransport(base, modifiers...)
-
-	return client.NewFileCachedRepository(
-		GetTrustDirectory(),
-		data.GUN(repoInfo.Name.Name()),
-		server,
-		tr,
-		GetPassphraseRetriever(in, out),
-		trustpinning.TrustPinConfig{})
+	return GetNotaryRepositoryWithTransport(in, out, repoInfo, server, tr)
 }
 
 // GetNotaryRepositoryWithTransport returns a NotaryRepository which strores
