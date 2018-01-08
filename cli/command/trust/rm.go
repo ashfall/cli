@@ -16,7 +16,7 @@ import (
 
 func newDeleteCommand(dockerCli command.Cli) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "remove IMAGE",
+		Use:   "rm IMAGE",
 		Short: "Delete all trust data and uninitialize trust repo",
 		Args:  cli.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -24,6 +24,7 @@ func newDeleteCommand(dockerCli command.Cli) *cobra.Command {
 		},
 	}
 	return cmd
+	// TODO: Implement a flag to bypass confirmation prompt
 }
 
 func deleteTrustRepo(cli command.Cli, remote string) error {
@@ -37,6 +38,11 @@ func deleteTrustRepo(cli command.Cli, remote string) error {
 	}
 
 	// get ref
+
+	// TODO: return the right errors for "image does
+	// not exist" vs "not authorized" vs ... (See
+	// other subcommands for example
+	// image-name-validation.
 	ref, err := reference.ParseNormalizedNamed(remote)
 	if err != nil {
 		return trust.NotaryError(ref.Name(), err)
@@ -70,6 +76,11 @@ func deleteTrustRepo(cli command.Cli, remote string) error {
 		deleteRemote); err != nil {
 		return trust.NotaryError(ref.Name(), err)
 	}
+
+	// TODO: Implement some sort of caching on the
+	// notary front, and add integration with this
+	// command (as opposed to just completely
+	// nuking trust repo as we are doing now
 
 	fmt.Fprintf(cli.Out(), "Successfully deleted all trust data for %s\n", remote)
 	return nil
